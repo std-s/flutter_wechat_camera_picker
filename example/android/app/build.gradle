@@ -26,7 +26,10 @@ if (flutterVersionName == null) {
 android {
     namespace "com.fluttercandies.wechatCameraPickerExample"
 
-    compileSdkVersion 34
+    compileSdkVersion 35
+
+    // Explicitly pick an installed NDK to avoid partial downloads (26.1.x)
+    ndkVersion "27.0.12077973"
 
     sourceSets {
         main.java.srcDirs += 'src/main/kotlin'
@@ -35,7 +38,7 @@ android {
     defaultConfig {
         applicationId "com.fluttercandies.wechatCameraPickerExample"
         minSdkVersion 21
-        targetSdkVersion 34
+        targetSdkVersion 35
         versionCode flutterVersionCode.toInteger()
         versionName flutterVersionName
     }

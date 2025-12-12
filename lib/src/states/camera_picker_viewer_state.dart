@@ -18,15 +18,11 @@ import '../internals/methods.dart';
 class CameraPickerViewerState extends State<CameraPickerViewer> {
   CameraPickerConfig get pickerConfig => widget.pickerConfig;
 
-  late final shouldTransformXWithFrontCamera =
-      widget.shouldTransformXWithFrontCamera;
-
   /// Whether the player is playing.
   /// 播放器是否在播放
   final isPlaying = ValueNotifier<bool>(false);
 
-  late final theme =
-      pickerConfig.theme ?? CameraPicker.themeData(defaultThemeColorWeChat);
+  late final theme = pickerConfig.theme ?? CameraPicker.themeData(defaultThemeColorWeChat);
 
   /// Construct an [File] instance through [previewXFile].
   /// 通过 [previewXFile] 构建 [File] 实例。
@@ -125,9 +121,7 @@ class CameraPickerViewerState extends State<CameraPickerViewer> {
   /// [CameraPickerConfig.onEntitySaving] will reference the file, we don't want
   /// the file to be deleted in this case too.
   void deletePreviewFileIfConfigured() {
-    if (pickerConfig.shouldDeletePreviewFile &&
-        pickerConfig.onEntitySaving != null &&
-        previewFile.existsSync()) {
+    if (pickerConfig.shouldDeletePreviewFile && pickerConfig.onEntitySaving != null && previewFile.existsSync()) {
       previewFile.delete().catchError((e, s) {
         handleErrorWithHandler(e, s, onError);
         return previewFile;
@@ -167,8 +161,7 @@ class CameraPickerViewerState extends State<CameraPickerViewer> {
     AssetEntity? entity;
     try {
       final ps = await PhotoManager.requestPermissionExtend(
-        requestOption:
-            pickerConfig.permissionRequestOption ??
+        requestOption: pickerConfig.permissionRequestOption ??
             PermissionRequestOption(
               iosAccessLevel: IosAccessLevel.addOnly,
               androidPermission: AndroidPermission(
@@ -266,9 +259,7 @@ class CameraPickerViewerState extends State<CameraPickerViewer> {
         ],
       );
     } else {
-      builder = widget.shouldTransformXWithFrontCamera?.call() == true
-          ? Transform.scale(scaleX: -1, child: Image.file(previewFile))
-          : Image.file(previewFile);
+      builder = Image.file(previewFile);
     }
     return MergeSemantics(
       child: Semantics(
