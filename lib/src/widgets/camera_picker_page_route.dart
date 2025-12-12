@@ -64,9 +64,7 @@ class CameraPickerPageRoute<T> extends PageRoute<T> {
       position: Tween<Offset>(
         begin: const Offset(0, 1),
         end: Offset.zero,
-      ).animate(
-        CurvedAnimation(curve: transitionCurve, parent: animation),
-      ),
+      ).animate(CurvedAnimation(curve: transitionCurve, parent: animation)),
       child: child,
     );
   }

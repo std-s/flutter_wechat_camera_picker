@@ -6,11 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:wechat_picker_library/wechat_picker_library.dart';
 
 final class CameraFocusPoint extends StatelessWidget {
-  const CameraFocusPoint({
-    super.key,
-    required this.size,
-    required this.color,
-  });
+  const CameraFocusPoint({super.key, required this.size, required this.color});
 
   final double size;
   final Color? color;

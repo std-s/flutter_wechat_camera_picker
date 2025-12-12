@@ -48,20 +48,19 @@ import 'enums.dart';
 ///  * 不要使用 `Navigator.of(context).pop/maybePop` 返回 `null` 或 `AssetEntity`
 ///    以外类型的内容，否则会抛出类型转换异常。
 /// {@endtemplate}
-typedef EntitySaveCallback = FutureOr<dynamic> Function(
-  BuildContext context,
-  CameraPickerViewType viewType,
-  File file,
-);
+typedef EntitySaveCallback =
+    FutureOr<dynamic> Function(
+      BuildContext context,
+      CameraPickerViewType viewType,
+      File file,
+    );
 
 /// {@template wechat_camera_picker.CameraErrorHandler}
 /// The error handler when any error occurred during the picking process.
 /// 拍摄照片过程中的自定义错误处理
 /// {@endtemplate}
-typedef CameraErrorHandler = void Function(
-  Object error,
-  StackTrace? stackTrace,
-);
+typedef CameraErrorHandler =
+    void Function(Object error, StackTrace? stackTrace);
 
 /// {@template wechat_camera_picker.ForegroundBuilder}
 /// Build the foreground/overlay widget with the given [CameraValue].
@@ -70,20 +69,19 @@ typedef CameraErrorHandler = void Function(
 /// The `controller` will be null until initialized.
 /// 在 [CameraController] 完成初始化前，`controller` 将为空。
 /// {@endtemplate}
-typedef ForegroundBuilder = Widget Function(
-  BuildContext context,
-  CameraController? controller,
-);
+typedef ForegroundBuilder =
+    Widget Function(BuildContext context, CameraController? controller);
 
 /// {@template wechat_camera_picker.PreviewTransformBuilder}
 /// Build the transformed widget with the given [CameraController].
 /// 根据给定的 [CameraController] 构建自定义的变换 widget
 /// {@endtemplate}
-typedef PreviewTransformBuilder = Widget? Function(
-  BuildContext context,
-  CameraController controller,
-  Widget child,
-);
+typedef PreviewTransformBuilder =
+    Widget? Function(
+      BuildContext context,
+      CameraController controller,
+      Widget child,
+    );
 
 /// {@template wechat_camera_picker.XFileCapturedCallback}
 /// The callback type definition when the XFile is captured by the camera.

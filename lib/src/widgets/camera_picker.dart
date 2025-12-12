@@ -46,7 +46,7 @@ class CameraPicker extends StatefulWidget {
     CameraPickerState Function()? createPickerState,
     bool useRootNavigator = true,
     CameraPickerPageRoute<AssetEntity> Function(Widget picker)?
-        pageRouteBuilder,
+    pageRouteBuilder,
     Locale? locale,
   }) {
     final Widget picker = CameraPicker(
@@ -65,10 +65,7 @@ class CameraPicker extends StatefulWidget {
 
   /// Build a dark theme according to the theme color.
   /// 通过主题色构建一个默认的暗黑主题
-  static ThemeData themeData(
-    Color themeColor, {
-    bool light = false,
-  }) {
+  static ThemeData themeData(Color themeColor, {bool light = false}) {
     return buildTheme(themeColor, light: light);
   }
 

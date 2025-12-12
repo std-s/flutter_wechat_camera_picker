@@ -8,10 +8,10 @@ import 'package:flutter/rendering.dart';
 /// All text delegates.
 const List<CameraPickerTextDelegate> cameraPickerTextDelegates =
     <CameraPickerTextDelegate>[
-  CameraPickerTextDelegate(),
-  EnglishCameraPickerTextDelegate(),
-  VietnameseCameraPickerTextDelegate(),
-];
+      CameraPickerTextDelegate(),
+      EnglishCameraPickerTextDelegate(),
+      VietnameseCameraPickerTextDelegate(),
+    ];
 
 /// Obtain the text delegate from the given locale.
 CameraPickerTextDelegate cameraPickerTextDelegateFromLocale(Locale? locale) {

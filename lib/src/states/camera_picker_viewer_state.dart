@@ -9,18 +9,17 @@ import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
 import 'package:path/path.dart' as path;
 import 'package:video_player/video_player.dart';
+import 'package:wechat_camera_picker/wechat_camera_picker.dart';
 import 'package:wechat_picker_library/wechat_picker_library.dart';
 
-import '../constants/config.dart';
 import '../internals/singleton.dart';
-import '../constants/enums.dart';
-import '../constants/type_defs.dart';
 import '../internals/methods.dart';
-import '../widgets/camera_picker.dart';
-import '../widgets/camera_picker_viewer.dart';
 
 class CameraPickerViewerState extends State<CameraPickerViewer> {
   CameraPickerConfig get pickerConfig => widget.pickerConfig;
+
+  late final shouldTransformXWithFrontCamera =
+      widget.shouldTransformXWithFrontCamera;
 
   /// Whether the player is playing.
   /// 播放器是否在播放
@@ -168,13 +167,14 @@ class CameraPickerViewerState extends State<CameraPickerViewer> {
     AssetEntity? entity;
     try {
       final ps = await PhotoManager.requestPermissionExtend(
-        requestOption: pickerConfig.permissionRequestOption ??
+        requestOption:
+            pickerConfig.permissionRequestOption ??
             PermissionRequestOption(
               iosAccessLevel: IosAccessLevel.addOnly,
               androidPermission: AndroidPermission(
                 type: switch ((
                   pickerConfig.enableRecording,
-                  pickerConfig.enableTapRecording
+                  pickerConfig.enableTapRecording,
                 )) {
                   (true, false) => RequestType.common,
                   (true, true) => RequestType.video,
@@ -245,10 +245,7 @@ class CameraPickerViewerState extends State<CameraPickerViewer> {
             color: Colors.white,
             shape: BoxShape.circle,
           ),
-          child: const Icon(
-            Icons.keyboard_return_rounded,
-            color: Colors.black,
-          ),
+          child: const Icon(Icons.keyboard_return_rounded, color: Colors.black),
         ),
       ),
     );
@@ -269,7 +266,9 @@ class CameraPickerViewerState extends State<CameraPickerViewer> {
         ],
       );
     } else {
-      builder = Image.file(previewFile);
+      builder = widget.shouldTransformXWithFrontCamera?.call() == true
+          ? Transform.scale(scaleX: -1, child: Image.file(previewFile))
+          : Image.file(previewFile);
     }
     return MergeSemantics(
       child: Semantics(
@@ -290,9 +289,7 @@ class CameraPickerViewerState extends State<CameraPickerViewer> {
       height: 32,
       padding: const EdgeInsets.symmetric(horizontal: 20),
       color: Theme.of(context).colorScheme.secondary,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(3),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(3)),
       onPressed: createAssetEntityAndPop,
       materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
       child: Text(

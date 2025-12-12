@@ -46,9 +46,9 @@ final class CameraPickerConfig {
     this.onPickConfirmed,
     this.permissionRequestOption,
   }) : assert(
-          enableRecording == true || onlyEnableRecording != true,
-          'Recording mode error.',
-        );
+         enableRecording == true || onlyEnableRecording != true,
+         'Recording mode error.',
+       );
 
   /// Whether the picker can record video.
   /// 选择器是否可以录像

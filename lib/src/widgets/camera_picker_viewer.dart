@@ -20,6 +20,7 @@ class CameraPickerViewer extends StatefulWidget {
     required this.previewXFile,
     required this.pickerConfig,
     this.createViewerState,
+    this.shouldTransformXWithFrontCamera,
   });
 
   /// The type of the viewer. (Image | Video)
@@ -37,6 +38,8 @@ class CameraPickerViewer extends StatefulWidget {
   /// 构建一个自定义的 [CameraPickerViewerState]。
   final CameraPickerViewerState Function()? createViewerState;
 
+  final bool Function()? shouldTransformXWithFrontCamera;
+
   /// Static method to push with the navigator.
   /// 跳转至选择预览的静态方法
   static Future<AssetEntity?> pushToViewer(
@@ -46,6 +49,7 @@ class CameraPickerViewer extends StatefulWidget {
     required CameraPickerViewType viewType,
     required XFile previewXFile,
     CameraPickerViewerState Function()? createViewerState,
+    bool Function()? shouldTransformXWithFrontCamera,
     bool useRootNavigator = true,
   }) {
     return Navigator.of(
@@ -59,15 +63,17 @@ class CameraPickerViewer extends StatefulWidget {
           previewXFile: previewXFile,
           pickerConfig: pickerConfig,
           createViewerState: createViewerState,
+          shouldTransformXWithFrontCamera: shouldTransformXWithFrontCamera,
         ),
-        transitionsBuilder: (
-          BuildContext context,
-          Animation<double> animation,
-          Animation<double> secondaryAnimation,
-          Widget child,
-        ) {
-          return FadeTransition(opacity: animation, child: child);
-        },
+        transitionsBuilder:
+            (
+              BuildContext context,
+              Animation<double> animation,
+              Animation<double> secondaryAnimation,
+              Widget child,
+            ) {
+              return FadeTransition(opacity: animation, child: child);
+            },
       ),
     );
   }
