@@ -5,6 +5,7 @@
 import 'dart:async';
 import 'dart:io';
 import 'dart:math' as math;
+import 'dart:typed_data';
 
 import 'package:camera/camera.dart';
 import 'package:camera_platform_interface/camera_platform_interface.dart';
@@ -926,7 +927,9 @@ class CameraPickerState extends State<CameraPicker> with WidgetsBindingObserver 
         return;
       }
       Uint8List bytes = await file.readAsBytes();
-      bytes = await compute(fixFrontCamera, bytes);
+      if (currentCamera.lensDirection == CameraLensDirection.front) {
+        bytes = await compute(fixFrontCamera, bytes);
+      }
       await File(file.path).writeAsBytes(bytes);
 
       final AssetEntity? entity = await pushToViewer(
@@ -957,18 +960,6 @@ class CameraPickerState extends State<CameraPicker> with WidgetsBindingObserver 
         isShootingButtonAnimate = false;
       });
     }
-  }
-
-  Future<Uint8List> fixFrontCamera(Uint8List bytes) async {
-    if (currentCamera.lensDirection != CameraLensDirection.front) {
-      return bytes;
-    }
-    final original = img.decodeImage(bytes);
-    if (original == null) return bytes;
-
-    final flipped = img.flipHorizontal(original);
-
-    return Uint8List.fromList(img.encodeJpg(flipped));
   }
 
   /// When the [buildCaptureButton]'s `onLongPress` called,
@@ -1998,4 +1989,12 @@ class CameraPickerState extends State<CameraPicker> with WidgetsBindingObserver 
       ),
     );
   }
+}
+
+Future<Uint8List> fixFrontCamera(Uint8List bytes) async {
+  final original = img.decodeImage(bytes);
+  if (original == null) return bytes;
+
+  final flipped = img.flipHorizontal(original);
+  return Uint8List.fromList(img.encodeJpg(flipped));
 }
