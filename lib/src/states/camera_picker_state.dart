@@ -900,23 +900,7 @@ class CameraPickerState extends State<CameraPicker> with WidgetsBindingObserver 
     setState(() {
       isControllerBusy = true;
     });
-    final ExposureMode previousExposureMode = controller.value.exposureMode;
     try {
-      await Future.wait(<Future<void>>[
-        wrapControllerMethod<void>(
-          'setFocusMode',
-          () => controller.setFocusMode(FocusMode.locked),
-        ).catchError((e, s) {
-          handleErrorWithHandler(e, s, pickerConfig.onError);
-        }),
-        if (previousExposureMode != ExposureMode.locked)
-          wrapControllerMethod<void>(
-            'setExposureMode',
-            () => controller.setExposureMode(ExposureMode.locked),
-          ).catchError((e, s) {
-            handleErrorWithHandler(e, s, pickerConfig.onError);
-          }),
-      ]);
       final XFile file = await controller.takePicture();
       await controller.pausePreview();
       final bool? isCapturedFileHandled = pickerConfig.onXFileCaptured?.call(
@@ -931,7 +915,6 @@ class CameraPickerState extends State<CameraPicker> with WidgetsBindingObserver 
         bytes = await compute(fixFrontCamera, bytes);
       }
       await File(file.path).writeAsBytes(bytes);
-
       final AssetEntity? entity = await pushToViewer(
         file: file,
         viewType: CameraPickerViewType.image,
@@ -942,14 +925,6 @@ class CameraPickerState extends State<CameraPicker> with WidgetsBindingObserver 
         } else {
           return Navigator.of(context).pop(entity);
         }
-      }
-      wrapControllerMethod<void>('setFocusMode', () async {
-        await innerController?.setFocusMode(FocusMode.auto);
-      });
-      if (previousExposureMode != ExposureMode.locked) {
-        wrapControllerMethod<void>('setExposureMode', () async {
-          await innerController?.setExposureMode(previousExposureMode);
-        });
       }
       await innerController?.resumePreview();
     } catch (e, s) {
