@@ -1230,7 +1230,8 @@ class CameraPickerState extends State<CameraPicker> with WidgetsBindingObserver 
             child: flashModeSwitch,
           );
         }
-        final isPortrait = v.deviceOrientation.toString().contains('portrait');
+        final isPortrait = pickerConfig.lockCaptureOrientation == DeviceOrientation.portraitUp ||
+            v.deviceOrientation.toString().contains('portrait');
         return Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12),
           child: Flex(
@@ -1326,8 +1327,10 @@ class CameraPickerState extends State<CameraPicker> with WidgetsBindingObserver 
   }) {
     const fallbackSize = 150.0;
     final previewSize = controller?.value.previewSize;
-    final orientation = controller?.value.deviceOrientation ?? MediaQuery.orientationOf(context);
-    final isPortrait = orientation.toString().contains('portrait');
+    final orientation =
+        pickerConfig.lockCaptureOrientation ?? controller?.value.deviceOrientation ?? MediaQuery.orientationOf(context);
+    final isPortrait = pickerConfig.lockCaptureOrientation == DeviceOrientation.portraitUp ||
+        orientation.toString().contains('portrait');
     double effectiveSize;
     if (controller == null || pickerConfig.enableScaledPreview) {
       effectiveSize = lastCaptureActionsEffectiveHeight ?? fallbackSize;
@@ -1730,6 +1733,9 @@ class CameraPickerState extends State<CameraPicker> with WidgetsBindingObserver 
       preview = ValueListenableBuilder<CameraValue>(
         valueListenable: controller,
         builder: (_, CameraValue value, Widget? child) {
+          if (pickerConfig.lockCaptureOrientation == DeviceOrientation.portraitUp) {
+            return RotatedBox(quarterTurns: 0, child: child);
+          }
           final lockedOrientation = value.lockedCaptureOrientation;
           int? quarterTurns = lockedOrientation?.index;
           if (quarterTurns == null) {
@@ -1816,7 +1822,7 @@ class CameraPickerState extends State<CameraPicker> with WidgetsBindingObserver 
     required BoxConstraints constraints,
     DeviceOrientation? deviceOrientation,
   }) {
-    final orientation = deviceOrientation ?? MediaQuery.orientationOf(context);
+    final orientation = pickerConfig.lockCaptureOrientation ?? deviceOrientation ?? MediaQuery.orientationOf(context);
     final isPortrait = orientation.toString().contains('portrait');
     return SafeArea(
       bottom: false,
@@ -1865,14 +1871,20 @@ class CameraPickerState extends State<CameraPicker> with WidgetsBindingObserver 
                 );
               }
               return Align(
-                alignment: {
-                  DeviceOrientation.portraitUp: Alignment.topCenter,
-                  DeviceOrientation.portraitDown: Alignment.bottomCenter,
-                  DeviceOrientation.landscapeLeft: Alignment.centerLeft,
-                  DeviceOrientation.landscapeRight: Alignment.centerRight,
-                }[v.deviceOrientation]!,
+                alignment: pickerConfig.lockCaptureOrientation == DeviceOrientation.portraitUp
+                    ? Alignment.topCenter
+                    : {
+                        DeviceOrientation.portraitUp: Alignment.topCenter,
+                        DeviceOrientation.portraitDown: Alignment.bottomCenter,
+                        DeviceOrientation.landscapeLeft: Alignment.centerLeft,
+                        DeviceOrientation.landscapeRight: Alignment.centerRight,
+                      }[v.deviceOrientation]!,
                 child: AspectRatio(
-                  aspectRatio: v.deviceOrientation.toString().contains('portrait') ? 1 / v.aspectRatio : v.aspectRatio,
+                  aspectRatio: pickerConfig.lockCaptureOrientation == DeviceOrientation.portraitUp
+                      ? 1 / v.aspectRatio
+                      : v.deviceOrientation.toString().contains('portrait')
+                          ? 1 / v.aspectRatio
+                          : v.aspectRatio,
                   child: LayoutBuilder(
                     builder: (BuildContext c, BoxConstraints constraints) {
                       return buildCameraPreview(
