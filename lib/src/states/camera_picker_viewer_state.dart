@@ -9,6 +9,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
 import 'package:path/path.dart' as path;
 import 'package:video_player/video_player.dart';
+import 'package:video_player_media_kit/video_player_media_kit.dart';
 import 'package:wechat_camera_picker/wechat_camera_picker.dart';
 import 'package:wechat_picker_library/wechat_picker_library.dart';
 
@@ -30,11 +31,11 @@ class CameraPickerViewerState extends State<CameraPickerViewer> {
 
   /// Controller for the video player.
   /// 视频播放的控制器
-  late final videoController = VideoPlayerController.file(previewFile);
+  VideoPlayerController? videoController;
 
   /// Whether the controller is playing.
   /// 播放控制器是否在播放
-  bool get isControllerPlaying => videoController.value.isPlaying;
+  bool get isControllerPlaying => videoController?.value.isPlaying ?? false;
 
   /// Whether the controller has initialized.
   /// 控制器是否已初始化
@@ -53,34 +54,72 @@ class CameraPickerViewerState extends State<CameraPickerViewer> {
   void initState() {
     super.initState();
     if (widget.viewType == CameraPickerViewType.video) {
+      if (Platform.isAndroid) {
+        VideoPlayerMediaKit.ensureInitialized(android: true);
+      }
       initializeVideoPlayerController();
     }
   }
 
   @override
   void dispose() {
-    videoController
-      ..removeListener(videoControllerListener)
-      ..pause()
-      ..dispose();
+    videoController?.removeListener(videoControllerListener);
+    videoController?.pause();
+    videoController?.dispose();
     super.dispose();
   }
 
   Future<void> initializeVideoPlayerController() async {
+    await Future.delayed(const Duration(milliseconds: 500));
     try {
-      await videoController.initialize();
-      videoController.addListener(videoControllerListener);
+      videoController = VideoPlayerController.file(
+        previewFile,
+        videoPlayerOptions: VideoPlayerOptions(mixWithOthers: true),
+      );
+      await videoController!.initialize();
+      videoController!.addListener(videoControllerListener);
       hasLoaded = true;
       if (pickerConfig.shouldAutoPreviewVideo) {
-        videoController.play();
-        videoController.setLooping(true);
+        videoController!.play();
+        videoController!.setLooping(true);
       }
-    } catch (e, s) {
-      hasErrorWhenInitializing = true;
+    } catch (e) {
       realDebugPrint('Error when initializing video controller: $e');
-      handleErrorWithHandler(e, s, onError);
+      // Retry 3 times.
+      // 重试 3 次
+      for (int i = 0; i < 3; i++) {
+        realDebugPrint('Retry initializing video controller with count $i');
+        await Future.delayed(const Duration(milliseconds: 1000));
+        try {
+          // Dispose the previous controller to release resources.
+          // 释放上一个控制器的资源
+          await videoController?.dispose();
+
+          // Initial controller creation
+          videoController = VideoPlayerController.file(
+            previewFile,
+            videoPlayerOptions: VideoPlayerOptions(mixWithOthers: true),
+          );
+          await videoController!.initialize();
+          videoController!.addListener(videoControllerListener);
+          hasLoaded = true;
+          if (pickerConfig.shouldAutoPreviewVideo) {
+            videoController!.play();
+            videoController!.setLooping(true);
+          }
+          break;
+        } catch (e, s) {
+          realDebugPrint('Retry $i failed: $e');
+          if (i == 2) {
+            hasErrorWhenInitializing = true;
+            handleErrorWithHandler(e, s, onError);
+          }
+        }
+      }
     } finally {
-      safeSetState(() {});
+      if (mounted) {
+        safeSetState(() {});
+      }
     }
   }
 
@@ -101,12 +140,12 @@ class CameraPickerViewerState extends State<CameraPickerViewer> {
   Future<void> playButtonCallback() async {
     try {
       if (isPlaying.value) {
-        videoController.pause();
+        videoController!.pause();
       } else {
-        if (videoController.value.duration == videoController.value.position) {
-          videoController.seekTo(Duration.zero);
+        if (videoController!.value.duration == videoController!.value.position) {
+          videoController!.seekTo(Duration.zero);
         }
-        videoController
+        videoController!
           ..play()
           ..setLooping(true);
       }
@@ -245,14 +284,29 @@ class CameraPickerViewerState extends State<CameraPickerViewer> {
   }
 
   Widget buildPreview(BuildContext context) {
+    if (hasErrorWhenInitializing) {
+      return Center(
+        child: Text(
+          Singleton.textDelegate.loadFailed,
+          style: const TextStyle(color: Colors.white),
+        ),
+      );
+    }
+    if (!hasLoaded) {
+      return const Center(child: CircularProgressIndicator());
+    }
     final Widget builder;
     if (widget.viewType == CameraPickerViewType.video) {
       builder = Stack(
         children: <Widget>[
-          Center(
-            child: AspectRatio(
-              aspectRatio: videoController.value.aspectRatio,
-              child: VideoPlayer(videoController),
+          Positioned.fill(
+            child: FittedBox(
+              fit: BoxFit.cover,
+              child: SizedBox(
+                width: videoController!.value.size.width,
+                height: videoController!.value.size.height,
+                child: VideoPlayer(videoController!),
+              ),
             ),
           ),
           buildPlayControlButton(context),
@@ -371,17 +425,6 @@ class CameraPickerViewerState extends State<CameraPickerViewer> {
 
   @override
   Widget build(BuildContext context) {
-    if (hasErrorWhenInitializing) {
-      return Center(
-        child: Text(
-          Singleton.textDelegate.loadFailed,
-          style: const TextStyle(inherit: false),
-        ),
-      );
-    }
-    if (!hasLoaded) {
-      return const SizedBox.shrink();
-    }
     return PopScope(
       canPop: true,
       // ignore: deprecated_member_use

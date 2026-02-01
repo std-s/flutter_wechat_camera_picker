@@ -1979,9 +1979,142 @@ class CameraPickerState extends State<CameraPicker> with WidgetsBindingObserver 
 }
 
 Future<Uint8List> fixFrontCamera(Uint8List bytes) async {
-  final original = img.decodeImage(bytes);
-  if (original == null) return bytes;
+  try {
+    // Try to flip via EXIF first (Fastest O(1))
+    if (_flipImageByExif(bytes)) {
+      return bytes;
+    }
+  } catch (e) {
+    // Ignore errors in EXIF patching and fall through to fallback
+  }
 
-  final flipped = img.flipHorizontal(original);
-  return Uint8List.fromList(img.encodeJpg(flipped));
+  // Fallback: Full pixel decode/encode (Slow O(N))
+  // Used when EXIF tags are missing or malformed.
+  try {
+    final img.Image? original = img.decodeImage(bytes);
+    if (original == null) return bytes;
+
+    final img.Image flipped = img.flipHorizontal(original);
+    // encodeJpg is synchronous, so no await needed here for the method itself,
+    // but the whole function is running in compute().
+    return Uint8List.fromList(img.encodeJpg(flipped));
+  } catch (e) {
+    return bytes;
+  }
+}
+
+/// Flips the image horizontally by modifying the EXIF Orientation tag.
+/// This avoids decoding/encoding the image pixels, saving memory and time.
+bool _flipImageByExif(Uint8List bytes) {
+  final ByteData data = ByteData.sublistView(bytes);
+  int offset = 0;
+
+  // Check SOI (Start of Image) - FF D8
+  if (data.lengthInBytes < 2 || data.getUint16(0) != 0xFFD8) return false;
+  offset += 2;
+
+  while (offset < data.lengthInBytes - 1) {
+    final int marker = data.getUint16(offset);
+    offset += 2;
+
+    // APP1 Marker (Exif) - FF E1
+    if (marker == 0xFFE1) {
+      if (offset + 2 > data.lengthInBytes) return false;
+      final int length = data.getUint16(offset);
+      // Length includes the 2 bytes of the length field itself
+      if (offset + length > data.lengthInBytes) return false;
+
+      final int startOfApp1 = offset + 2;
+
+      // Check for "Exif\0\0" (0x45 78 69 66 00 00)
+      if (length >= 6 && data.getUint32(startOfApp1) == 0x45786966 && data.getUint16(startOfApp1 + 4) == 0x0000) {
+        final int tiffStart = startOfApp1 + 6;
+
+        // TIFF Header: Byte Order
+        final int byteOrder = data.getUint16(tiffStart);
+        final bool isLittle = byteOrder == 0x4949; // 'II'
+        if (!isLittle && byteOrder != 0x4D4D) return false; // Invalid or unknown endianness
+
+        final Endian endian = isLittle ? Endian.little : Endian.big;
+
+        // Check 42 (0x002A)
+        if (data.getUint16(tiffStart + 2, endian) != 0x002A) return false;
+
+        // Offset to 0th IFD
+        final int ifdOffset = data.getUint32(tiffStart + 4, endian);
+        int entryStart = tiffStart + ifdOffset;
+
+        if (entryStart + 2 > data.lengthInBytes) return false;
+
+        // Number of entries
+        final int numEntries = data.getUint16(entryStart, endian);
+        entryStart += 2;
+
+        for (int i = 0; i < numEntries; i++) {
+          if (entryStart + 12 > data.lengthInBytes) return false;
+
+          final int tag = data.getUint16(entryStart + (i * 12), endian);
+          // Tag 0x0112 is Orientation
+          if (tag == 0x0112) {
+            final int type = data.getUint16(entryStart + (i * 12) + 2, endian);
+            final int count = data.getUint32(entryStart + (i * 12) + 4, endian);
+
+            // Orientation is Short (type 3), count 1.
+            // Value is stored directly in the 4-byte value/offset field if it fits (Short fits).
+            if (type == 3 && count == 1) {
+              final int valueOffset = entryStart + (i * 12) + 8;
+              final int currentValue = data.getUint16(valueOffset, endian);
+
+              int newValue = 1;
+              // Map based on "Flip Horizontal" transformation
+              switch (currentValue) {
+                case 1:
+                  newValue = 2;
+                  break;
+                case 2:
+                  newValue = 1;
+                  break;
+                case 3:
+                  newValue = 4;
+                  break;
+                case 4:
+                  newValue = 3;
+                  break;
+                case 5:
+                  newValue = 6;
+                  break;
+                case 6:
+                  newValue = 5;
+                  break;
+                case 7:
+                  newValue = 8;
+                  break;
+                case 8:
+                  newValue = 7;
+                  break;
+                default:
+                  newValue = 2; // Default to Mirrored if unknown/0
+              }
+
+              // Write the new value back to the byte array
+              data.setUint16(valueOffset, newValue, endian);
+              return true;
+            }
+          }
+        }
+      }
+      return false; // Orientation tag not found in APP1
+    } else {
+      // Skip other markers
+      if (marker == 0xFFDA) return false; // SOS (Start of Scan) - compressed data starts, parsing ends.
+
+      // Some headers have no length (RSTn, SOI, EOI have been handled or don't appear here usually)
+      // But valid JPEG markers (FF XX) except restart markers usually have length.
+      // For safety, if we don't know, we stop. But standard markers (APPn, DQT, DHT, SOF) have length.
+      if (offset + 2 > data.lengthInBytes) return false;
+      final int length = data.getUint16(offset);
+      offset += length;
+    }
+  }
+  return false;
 }
