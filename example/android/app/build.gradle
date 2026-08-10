@@ -1,7 +1,7 @@
 plugins {
     id "com.android.application"
-    id "kotlin-android"
-    id "kotlin-kapt"
+    id "org.jetbrains.kotlin.android"
+    id 'org.jetbrains.kotlin.kapt'
     id "dev.flutter.flutter-gradle-plugin"
 }
 
@@ -26,10 +26,9 @@ if (flutterVersionName == null) {
 android {
     namespace "com.fluttercandies.wechatCameraPickerExample"
 
-    compileSdkVersion 35
-
     // Explicitly pick an installed NDK to avoid partial downloads (26.1.x)
     ndkVersion "27.0.12077973"
+    compileSdk = flutter.compileSdkVersion
 
     sourceSets {
         main.java.srcDirs += 'src/main/kotlin'
@@ -37,8 +36,8 @@ android {
 
     defaultConfig {
         applicationId "com.fluttercandies.wechatCameraPickerExample"
-        minSdkVersion 21
-        targetSdkVersion 35
+        minSdkVersion flutter.minSdkVersion
+        targetSdkVersion flutter.targetSdkVersion
         versionCode flutterVersionCode.toInteger()
         versionName flutterVersionName
     }
@@ -73,6 +72,10 @@ android {
             signingConfig signingConfigs.forAll
         }
     }
+
+    lint {
+        disable 'InvalidPackage'
+    }
 }
 
 flutter {
@@ -80,6 +83,6 @@ flutter {
 }
 
 dependencies {
-    implementation 'com.github.bumptech.glide:glide:4.15.0'
-    kapt 'com.github.bumptech.glide:compiler:4.15.0'
+    implementation 'com.github.bumptech.glide:glide:4.16.0'
+    kapt 'com.github.bumptech.glide:compiler:4.16.0'
 }

@@ -33,7 +33,7 @@ We won't update it in real-time to align with other channels of Flutter.
 
 |        | 3.3.0 | 3.16.0 | 3.22.0 |
 |--------|:-----:|:------:|:------:|
-| 4.5.0+ |   ❌   |   ✅    |   ✅    | 
+| 4.4.0+ |   ❌   |   ✅    |   ✅    |
 | 4.2.0+ |   ❌   |   ✅    |   ❌    |
 | 4.0.0+ |   ✅   |   ❌    |   ❌    |
 
@@ -140,7 +140,7 @@ The latest **dev** version is:
 
 Follow these detailed setup guide before runs:
 - [wechat_assets_picker#preparing-for-use](https://github.com/fluttercandies/flutter_wechat_assets_picker#preparing-for-use-)
-- [camera#installation](https://pub.dev/packages/camera#installation)
+- [camera#setup](https://pub.dev/packages/camera#setup)
 
 #### Notes 📝
 
@@ -215,6 +215,7 @@ Fields in `CameraPickerConfig`:
 | lockCaptureOrientation        | `DeviceOrientation?`          | Whether the camera should be locked to the specific orientation during captures.                      | null                                       |
 | foregroundBuilder             | `ForegroundBuilder?`          | The foreground widget builder which will cover the whole camera preview.                              | null                                       |
 | previewTransformBuilder       | `PreviewTransformBuilder?`    | The widget builder which will transform the camera preview.                                           | null                                       |
+| previewVideoViewType          | `VideoViewType`               | The type of preview video view to be used.                                                            | `VideoViewType.texture`                    |
 | onEntitySaving                | `EntitySaveCallback?`         | The callback type define for saving entity in the viewer.                                             | null                                       |
 | onError                       | `CameraErrorHandler?`         | The error handler when any error occurred during the picking process.                                 | null                                       |
 | onXFileCaptured               | `XFileCapturedCallback?`      | The callback type definition when the XFile is captured by the camera.                                | null                                       |

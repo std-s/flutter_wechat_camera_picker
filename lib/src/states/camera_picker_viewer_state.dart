@@ -7,6 +7,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
+import 'package:flutter/services.dart';
 import 'package:path/path.dart' as path;
 import 'package:video_player/video_player.dart';
 import 'package:video_player_media_kit/video_player_media_kit.dart';
@@ -23,7 +24,8 @@ class CameraPickerViewerState extends State<CameraPickerViewer> {
   /// 播放器是否在播放
   final isPlaying = ValueNotifier<bool>(false);
 
-  late final theme = pickerConfig.theme ?? CameraPicker.themeData(defaultThemeColorWeChat);
+  late final theme =
+      pickerConfig.theme ?? CameraPicker.themeData(defaultThemeColorWeChat);
 
   /// Construct an [File] instance through [previewXFile].
   /// 通过 [previewXFile] 构建 [File] 实例。
@@ -74,9 +76,11 @@ class CameraPickerViewerState extends State<CameraPickerViewer> {
     try {
       videoController = VideoPlayerController.file(
         previewFile,
+        viewType: pickerConfig.previewVideoViewType,
         videoPlayerOptions: VideoPlayerOptions(mixWithOthers: true),
       );
       await videoController!.initialize();
+      if (!mounted) return;
       videoController!.addListener(videoControllerListener);
       hasLoaded = true;
       if (pickerConfig.shouldAutoPreviewVideo) {
@@ -98,6 +102,7 @@ class CameraPickerViewerState extends State<CameraPickerViewer> {
           // Initial controller creation
           videoController = VideoPlayerController.file(
             previewFile,
+            viewType: pickerConfig.previewVideoViewType,
             videoPlayerOptions: VideoPlayerOptions(mixWithOthers: true),
           );
           await videoController!.initialize();
@@ -139,15 +144,18 @@ class CameraPickerViewerState extends State<CameraPickerViewer> {
   /// 一般来说按钮只切换播放暂停。当视频播放结束时，点击按钮将从头开始播放。
   Future<void> playButtonCallback() async {
     try {
+      final controller = videoController;
+      if (controller == null) return;
       if (isPlaying.value) {
-        videoController!.pause();
+        await controller.pause();
       } else {
-        if (videoController!.value.duration == videoController!.value.position) {
-          videoController!.seekTo(Duration.zero);
-        }
-        videoController!
-          ..play()
-          ..setLooping(true);
+        await Future.wait([
+          if (controller.value.duration == controller.value.position)
+            controller.seekTo(Duration.zero),
+          controller.setLooping(true),
+        ]);
+        if (!mounted) return;
+        await controller.play();
       }
     } catch (e, s) {
       handleErrorWithHandler(e, s, onError);
@@ -160,7 +168,9 @@ class CameraPickerViewerState extends State<CameraPickerViewer> {
   /// [CameraPickerConfig.onEntitySaving] will reference the file, we don't want
   /// the file to be deleted in this case too.
   void deletePreviewFileIfConfigured() {
-    if (pickerConfig.shouldDeletePreviewFile && pickerConfig.onEntitySaving != null && previewFile.existsSync()) {
+    if (pickerConfig.shouldDeletePreviewFile &&
+        pickerConfig.onEntitySaving == null &&
+        previewFile.existsSync()) {
       previewFile.delete().catchError((e, s) {
         handleErrorWithHandler(e, s, onError);
         return previewFile;
@@ -199,22 +209,23 @@ class CameraPickerViewerState extends State<CameraPickerViewer> {
 
     AssetEntity? entity;
     try {
+      final defaultPermissionRequestOption = PermissionRequestOption(
+        iosAccessLevel: IosAccessLevel.addOnly,
+        androidPermission: AndroidPermission(
+          type: switch ((
+            pickerConfig.enableRecording,
+            pickerConfig.enableTapRecording
+          )) {
+            (true, false) => RequestType.common,
+            (true, true) => RequestType.video,
+            (false, _) => RequestType.image,
+          },
+          mediaLocation: false,
+        ),
+      );
       final ps = await PhotoManager.requestPermissionExtend(
         requestOption: pickerConfig.permissionRequestOption ??
-            PermissionRequestOption(
-              iosAccessLevel: IosAccessLevel.addOnly,
-              androidPermission: AndroidPermission(
-                type: switch ((
-                  pickerConfig.enableRecording,
-                  pickerConfig.enableTapRecording,
-                )) {
-                  (true, false) => RequestType.common,
-                  (true, true) => RequestType.video,
-                  (false, _) => RequestType.image,
-                },
-                mediaLocation: false,
-              ),
-            ),
+            defaultPermissionRequestOption,
       );
       if (ps == PermissionState.authorized || ps == PermissionState.limited) {
         final filePath = previewFile.path;
@@ -433,18 +444,22 @@ class CameraPickerViewerState extends State<CameraPickerViewer> {
           deletePreviewFileIfConfigured();
         }
       },
-      child: Theme(
-        data: theme,
-        child: Builder(
-          builder: (context) => Material(
-            color: Colors.black,
-            child: Stack(
-              fit: StackFit.expand,
-              children: <Widget>[
-                buildPreview(context),
-                buildForeground(context),
-                if (isSavingEntity) buildLoading(context),
-              ],
+      child: AnnotatedRegion<SystemUiOverlayStyle>(
+        value: pickerConfig.systemOverlayStyle ??
+            CameraPickerConfig.defaultSystemOverlayStyle,
+        child: Theme(
+          data: theme,
+          child: Builder(
+            builder: (context) => Material(
+              color: Colors.black,
+              child: Stack(
+                fit: StackFit.expand,
+                children: <Widget>[
+                  buildPreview(context),
+                  buildForeground(context),
+                  if (isSavingEntity) buildLoading(context),
+                ],
+              ),
             ),
           ),
         ),

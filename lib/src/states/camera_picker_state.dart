@@ -5,7 +5,6 @@
 import 'dart:async';
 import 'dart:io';
 import 'dart:math' as math;
-import 'dart:typed_data';
 
 import 'package:camera/camera.dart';
 import 'package:camera_platform_interface/camera_platform_interface.dart';
@@ -32,7 +31,8 @@ import '../widgets/camera_progress_button.dart';
 const Color _lockedColor = Colors.orangeAccent;
 const Duration _kDuration = Duration(milliseconds: 300);
 
-class CameraPickerState extends State<CameraPicker> with WidgetsBindingObserver {
+class CameraPickerState extends State<CameraPicker>
+    with WidgetsBindingObserver {
   /// The controller for the current camera.
   /// 当前相机实例的控制器
   CameraController get controller => innerController!;
@@ -73,7 +73,8 @@ class CameraPickerState extends State<CameraPicker> with WidgetsBindingObserver 
   /// Current exposure offset.
   /// 当前曝光值
   final ValueNotifier<double> currentExposureOffset = ValueNotifier<double>(0);
-  final ValueNotifier<double> currentExposureSliderOffset = ValueNotifier<double>(0);
+  final ValueNotifier<double> currentExposureSliderOffset =
+      ValueNotifier<double>(0);
   double maxAvailableExposureOffset = 0;
   double minAvailableExposureOffset = 0;
   double exposureStep = 0;
@@ -132,6 +133,10 @@ class CameraPickerState extends State<CameraPicker> with WidgetsBindingObserver 
   /// 但如果录像时间没有限制，定时器将不会起作用。
   Timer? recordCountdownTimer;
 
+  /// The current in-flight stop recording operation.
+  /// 当前正在进行中的停止录制操作
+  Future<XFile?>? stopRecordingFuture;
+
   /// The [Stopwatch] to monitor if the record has reached
   /// the minimum record duration requirement.
   /// 录像时长计时器，用来检测是否达到了最短录制时长。
@@ -141,7 +146,8 @@ class CameraPickerState extends State<CameraPicker> with WidgetsBindingObserver 
   /// not valid, it is removed from the list.
   /// 使用每个相机的所有闪光灯模式进行初始化。
   /// 如果闪光灯模式无效，则将其从列表中删除。
-  final Map<CameraDescription, List<FlashMode>> validFlashModes = <CameraDescription, List<FlashMode>>{};
+  final Map<CameraDescription, List<FlashMode>> validFlashModes =
+      <CameraDescription, List<FlashMode>>{};
 
   ////////////////////////////////////////////////////////////////////////////
   ////////////////////////////// Global Getters //////////////////////////////
@@ -158,11 +164,13 @@ class CameraPickerState extends State<CameraPicker> with WidgetsBindingObserver 
 
   /// Whether the picker only enables video recording.
   /// 选择器是否只可以录像
-  bool get onlyEnableRecording => enableRecording && pickerConfig.onlyEnableRecording;
+  bool get onlyEnableRecording =>
+      enableRecording && pickerConfig.onlyEnableRecording;
 
   /// Whether allow the record can start with single tap.
   /// 选择器是否可以单击录像
-  bool get enableTapRecording => onlyEnableRecording && pickerConfig.enableTapRecording;
+  bool get enableTapRecording =>
+      onlyEnableRecording && pickerConfig.enableTapRecording;
 
   /// No audio integration required when it's only for camera.
   /// 在仅允许拍照时不需要启用音频
@@ -170,13 +178,16 @@ class CameraPickerState extends State<CameraPicker> with WidgetsBindingObserver 
 
   /// Whether the picker needs to prepare for video recording on iOS.
   /// 是否需要为 iOS 的录制视频执行准备操作
-  bool get shouldPrepareForVideoRecording => enableRecording && enableAudio && Platform.isIOS;
+  bool get shouldPrepareForVideoRecording =>
+      enableRecording && enableAudio && Platform.isIOS;
 
-  bool get enablePullToZoomInRecord => enableRecording && pickerConfig.enablePullToZoomInRecord;
+  bool get enablePullToZoomInRecord =>
+      enableRecording && pickerConfig.enablePullToZoomInRecord;
 
   /// Whether the recording restricted to a specific duration.
   /// 录像是否有限制的时长
-  bool get isRecordingRestricted => pickerConfig.maximumRecordingDuration != null;
+  bool get isRecordingRestricted =>
+      pickerConfig.maximumRecordingDuration != null;
 
   /// The minimum recording duration limit.
   /// 录制视频的最短时长限制。
@@ -185,7 +196,8 @@ class CameraPickerState extends State<CameraPicker> with WidgetsBindingObserver 
   /// 如果最大时长大于最小时长，则使用最大时长。
   Duration get minimumRecordingDuration {
     if (pickerConfig.maximumRecordingDuration != null &&
-        pickerConfig.maximumRecordingDuration! < pickerConfig.minimumRecordingDuration) {
+        pickerConfig.maximumRecordingDuration! <
+            pickerConfig.minimumRecordingDuration) {
       return pickerConfig.maximumRecordingDuration!;
     }
     return pickerConfig.minimumRecordingDuration;
@@ -195,8 +207,15 @@ class CameraPickerState extends State<CameraPicker> with WidgetsBindingObserver 
   bool get isRecordingVideo => innerController?.value.isRecordingVideo ?? false;
 
   /// Whether the capture button is displaying.
+  ///
+  /// In tap recording mode, the button should remain visible during recording
+  /// even if the pointer state has been cancelled by the platform.
+  /// 在轻触录像模式下，即使平台打断了点击态，录制期间也需要持续展示按钮。
   bool get shouldCaptureButtonDisplay =>
-      (isCaptureButtonTapDown || MediaQuery.accessibleNavigationOf(context)) && isRecordingVideo;
+      isRecordingVideo &&
+      (enableTapRecording ||
+          isCaptureButtonTapDown ||
+          MediaQuery.accessibleNavigationOf(context));
 
   /// Whether the camera preview should be rotated.
   bool get isCameraRotated => pickerConfig.cameraQuarterTurns % 4 != 0;
@@ -209,7 +228,8 @@ class CameraPickerState extends State<CameraPicker> with WidgetsBindingObserver 
 
   /// If there's no theme provided from the user, use [CameraPicker.themeData] .
   /// 如果用户未提供主题，通过 [CameraPicker.themeData] 创建。
-  late final ThemeData theme = pickerConfig.theme ?? CameraPicker.themeData(defaultThemeColorWeChat);
+  late final ThemeData theme =
+      pickerConfig.theme ?? CameraPicker.themeData(defaultThemeColorWeChat);
 
   CameraPickerTextDelegate get textDelegate => Singleton.textDelegate;
 
@@ -252,7 +272,8 @@ class CameraPickerState extends State<CameraPicker> with WidgetsBindingObserver 
   void initState() {
     super.initState();
     ambiguate(WidgetsBinding.instance)?.addObserver(this);
-    Singleton.textDelegate = widget.pickerConfig.textDelegate ?? cameraPickerTextDelegateFromLocale(widget.locale);
+    Singleton.textDelegate = widget.pickerConfig.textDelegate ??
+        cameraPickerTextDelegateFromLocale(widget.locale);
     initCameras();
     initAccelerometerSubscription();
   }
@@ -262,7 +283,10 @@ class CameraPickerState extends State<CameraPicker> with WidgetsBindingObserver 
     ambiguate(WidgetsBinding.instance)?.removeObserver(this);
     final c = innerController;
     innerController = null;
-    c?.dispose();
+    // Dispose can not be async, so release the controller in background.
+    // `dispose` 无法直接异步等待，这里捕获当前控制器后在后台完成释放。
+    // 先断开 `innerController`，避免异步清理过程中后续逻辑继续操作旧实例。
+    unawaited(disposeCameraController(c));
     currentExposureOffset.dispose();
     currentExposureSliderOffset.dispose();
     lastExposurePoint.dispose();
@@ -277,10 +301,35 @@ class CameraPickerState extends State<CameraPicker> with WidgetsBindingObserver 
     super.dispose();
   }
 
+  /// Dispose the given [controller] asynchronously.
+  /// 异步释放指定的控制器，子类可按需覆写销毁流程。
+  Future<void> disposeCameraController(CameraController? controller) async {
+    if (controller == null) {
+      return;
+    }
+    XFile? file;
+    try {
+      file = await stopRecordingBeforeDispose(controller);
+    } catch (e, s) {
+      realDebugPrint('Failed to stop recording while disposing controller: $e');
+      pickerConfig.onError?.call(e, s);
+    } finally {
+      await controller.dispose();
+      if (file != null) {
+        await deleteCapturedFile(file);
+      }
+    }
+  }
+
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     final CameraController? c = innerController;
     if (state == AppLifecycleState.resumed && !accessDenied) {
+      // 录像期间不要重建控制器，否则返回页面后会丢失停止当前录制的能力。
+      if (c != null && c.value.isInitialized && c.value.isRecordingVideo) {
+        safeSetState(() {});
+        return;
+      }
       initCameras(
         cameraDescription: cameras.elementAtOrNull(currentCameraIndex),
       );
@@ -288,9 +337,105 @@ class CameraPickerState extends State<CameraPicker> with WidgetsBindingObserver 
       // App state changed before we got the chance to initialize.
       return;
     } else if (state == AppLifecycleState.inactive) {
+      // `camera` 默认使用持久化录制，录像期间必须显式 stop 才能正确收尾。
+      // 如果系统手势触发 inactive 时直接销毁控制器，轻触录像返回后会无法停止录制。
+      if (c.value.isRecordingVideo) {
+        return;
+      }
+      clearInterruptedRecordingState();
       c.dispose();
       innerController = null;
       isControllerBusy = false;
+    }
+  }
+
+  /// 清理因生命周期中断而失效的录制状态。
+  void clearInterruptedRecordingState() {
+    recordDetectTimer?.cancel();
+    recordDetectTimer = null;
+    clearRecordCountdownTimer();
+    recordStopwatch
+      ..stop()
+      ..reset();
+    isShootingButtonAnimate = false;
+    isCaptureButtonTapDown = false;
+    lastShootingButtonPressedPosition = null;
+  }
+
+  /// 清理录制时长限制使用的倒计时定时器，避免上一轮录制影响下一轮。
+  void clearRecordCountdownTimer() {
+    recordCountdownTimer?.cancel();
+    recordCountdownTimer = null;
+  }
+
+  /// Whether the current state can continue handling a stopped recording.
+  /// 当前页面是否仍然可以继续处理停止录制后的结果
+  bool canHandleStoppedRecording(CameraController? controller) =>
+      controller != null && mounted && identical(innerController, controller);
+
+  /// Stop the active recording before disposing the controller.
+  /// 在销毁控制器前停止当前录制，子类可覆写中断清理策略。
+  Future<XFile?> stopRecordingBeforeDispose(
+    CameraController? controller,
+  ) async {
+    if (controller == null) {
+      return null;
+    }
+    if (!controller.value.isInitialized || !controller.value.isRecordingVideo) {
+      return null;
+    }
+    clearInterruptedRecordingState();
+    return await stopRecordingForController(controller);
+  }
+
+  /// Stop the platform recording once and share the same result with joiners.
+  /// 执行一次底层停止录制，并让后续调用复用同一个结果
+  Future<XFile?> stopRecordingForController(
+    CameraController? controller,
+  ) async {
+    if (controller == null) {
+      return null;
+    }
+    final currentFuture = stopRecordingFuture;
+    if (currentFuture != null) {
+      return await currentFuture;
+    }
+    final future = stopRecordingOnPlatform(controller);
+    stopRecordingFuture = future;
+    try {
+      return await future;
+    } finally {
+      if (identical(stopRecordingFuture, future)) {
+        stopRecordingFuture = null;
+      }
+    }
+  }
+
+  /// Stop recording on the platform side without any UI side effects.
+  /// 仅执行底层停止录制，不处理任何 UI 后续逻辑
+  Future<XFile?> stopRecordingOnPlatform(CameraController? controller) async {
+    if (controller == null) {
+      return null;
+    }
+    clearRecordCountdownTimer();
+    if (!controller.value.isInitialized || !controller.value.isRecordingVideo) {
+      return null;
+    }
+    return controller.stopVideoRecording();
+  }
+
+  /// Delete a captured file if it still exists.
+  /// 如果拍摄文件仍然存在，则将其删除
+  Future<void> deleteCapturedFile(XFile file) async {
+    final capturedFile = File(file.path);
+    if (!await capturedFile.exists()) {
+      return;
+    }
+    try {
+      await capturedFile.delete();
+    } catch (e, s) {
+      realDebugPrint('Failed to delete captured file: $e');
+      pickerConfig.onError?.call(e, s);
     }
   }
 
@@ -308,7 +453,8 @@ class CameraPickerState extends State<CameraPicker> with WidgetsBindingObserver 
     // Fetch the biggest size from the constraints.
     Size size = constraints.biggest;
     // Flip the size when the preview needs to turn with an odd count of quarters.
-    if ((turns.isOdd && orientation.contains('portrait')) || (turns.isEven && orientation.contains('landscape'))) {
+    if ((turns.isOdd && orientation.contains('portrait')) ||
+        (turns.isEven && orientation.contains('landscape'))) {
       size = size.flipped;
     }
     // Calculate scale depending on the size and camera ratios.
@@ -406,7 +552,8 @@ class CameraPickerState extends State<CameraPicker> with WidgetsBindingObserver 
 
       initFlashModesForCameras();
       final int preferredIndex = cameras.indexWhere(
-        (CameraDescription e) => e.lensDirection == pickerConfig.preferredLensDirection,
+        (CameraDescription e) =>
+            e.lensDirection == pickerConfig.preferredLensDirection,
       );
       final int index;
       if (preferredIndex != -1 && c == null) {
@@ -442,61 +589,63 @@ class CameraPickerState extends State<CameraPicker> with WidgetsBindingObserver 
         stopwatch
           ..reset()
           ..start();
-        await Future.wait(<Future<void>>[
-          wrapControllerMethod(
-            'getExposureOffsetStepSize',
-            () => newController.getExposureOffsetStepSize(),
-            camera: camera,
-            fallback: exposureStep,
-          ).then((value) => exposureStep = value!),
-          wrapControllerMethod(
-            'getMaxExposureOffset',
-            () => newController.getMaxExposureOffset(),
-            camera: camera,
-            fallback: maxAvailableExposureOffset,
-          ).then((value) => maxAvailableExposureOffset = value!),
-          wrapControllerMethod(
-            'getMinExposureOffset',
-            () => newController.getMinExposureOffset(),
-            camera: camera,
-            fallback: minAvailableExposureOffset,
-          ).then((value) => minAvailableExposureOffset = value!),
-          wrapControllerMethod(
-            'getMaxZoomLevel',
-            () => newController.getMaxZoomLevel(),
-            camera: camera,
-            fallback: maxAvailableZoom,
-          ).then((value) => maxAvailableZoom = value!),
-          wrapControllerMethod(
-            'getMinZoomLevel',
-            () => newController.getMinZoomLevel(),
-            camera: camera,
-            fallback: minAvailableZoom,
-          ).then((value) => minAvailableZoom = value!),
-          if (pickerConfig.lockCaptureOrientation != null)
-            wrapControllerMethod<void>(
-              'lockCaptureOrientation',
-              () => newController.lockCaptureOrientation(
-                pickerConfig.lockCaptureOrientation,
-              ),
+        await Future.wait(
+          <Future<void>>[
+            wrapControllerMethod(
+              'getExposureOffsetStepSize',
+              () => newController.getExposureOffsetStepSize(),
               camera: camera,
-            ),
-          // Do not set flash modes for the front camera.
-          if (camera.lensDirection != CameraLensDirection.front)
-            Future(() async {
-              final flashMode = pickerConfig.preferredFlashMode;
-              if (flashMode != FlashMode.auto && validFlashModes[camera]?.contains(flashMode) != false) {
-                return wrapControllerMethod<void>(
-                  'setFlashMode',
-                  () => newController.setFlashMode(flashMode),
-                  camera: camera,
-                  onError: () {
-                    validFlashModes[camera]?.remove(flashMode);
-                  },
-                );
-              }
-            }),
-        ], eagerError: false);
+              fallback: exposureStep,
+            ).then((value) => exposureStep = value!),
+            wrapControllerMethod(
+              'getMaxExposureOffset',
+              () => newController.getMaxExposureOffset(),
+              camera: camera,
+              fallback: maxAvailableExposureOffset,
+            ).then((value) => maxAvailableExposureOffset = value!),
+            wrapControllerMethod(
+              'getMinExposureOffset',
+              () => newController.getMinExposureOffset(),
+              camera: camera,
+              fallback: minAvailableExposureOffset,
+            ).then((value) => minAvailableExposureOffset = value!),
+            wrapControllerMethod(
+              'getMaxZoomLevel',
+              () => newController.getMaxZoomLevel(),
+              camera: camera,
+              fallback: maxAvailableZoom,
+            ).then((value) => maxAvailableZoom = value!),
+            wrapControllerMethod(
+              'getMinZoomLevel',
+              () => newController.getMinZoomLevel(),
+              camera: camera,
+              fallback: minAvailableZoom,
+            ).then((value) => minAvailableZoom = value!),
+            if (pickerConfig.lockCaptureOrientation case final orientation?)
+              wrapControllerMethod<void>(
+                'lockCaptureOrientation',
+                () => newController.lockCaptureOrientation(orientation),
+                camera: camera,
+              ),
+            // Do not set flash modes for the front camera.
+            if (camera.lensDirection != CameraLensDirection.front)
+              Future(() async {
+                final flashMode = pickerConfig.preferredFlashMode;
+                if (flashMode != FlashMode.auto &&
+                    validFlashModes[camera]?.contains(flashMode) != false) {
+                  return wrapControllerMethod<void>(
+                    'setFlashMode',
+                    () => newController.setFlashMode(flashMode),
+                    camera: camera,
+                    onError: () {
+                      validFlashModes[camera]?.remove(flashMode);
+                    },
+                  );
+                }
+              }),
+          ],
+          eagerError: false,
+        );
         stopwatch.stop();
         realDebugPrint("${stopwatch.elapsed} for config's update.");
         innerController = newController;
@@ -547,8 +696,8 @@ class CameraPickerState extends State<CameraPicker> with WidgetsBindingObserver 
   /// which enables the captured file stored the correct orientation.
   void handleAccelerometerEvent(AccelerometerEvent event) {
     if (!mounted ||
-        pickerConfig.lockCaptureOrientation != null ||
         innerController == null ||
+        lockedCaptureOrientation != null ||
         !controller.value.isInitialized ||
         controller.value.isPreviewPaused ||
         controller.value.isRecordingVideo ||
@@ -602,6 +751,10 @@ class CameraPickerState extends State<CameraPicker> with WidgetsBindingObserver 
   /// of cameras, start from the beginning.
   /// 按顺序切换相机。当达到相机数量时从头开始。
   void switchCameras() {
+    // Skip switching when controller is not ready.
+    if (innerController == null) {
+      return;
+    }
     // Skip switching when taking picture or recording video.
     if (controller.value.isTakingPicture || controller.value.isRecordingVideo) {
       return;
@@ -759,7 +912,8 @@ class CameraPickerState extends State<CameraPicker> with WidgetsBindingObserver 
     if (enableScaledPreview) {
       // Ignore point update when the new point is less than 8% and higher than
       // 92% of the screen's height.
-      if (position.dy < constraints.maxHeight / 12 || position.dy > constraints.maxHeight / 12 * 11) {
+      if (position.dy < constraints.maxHeight / 12 ||
+          position.dy > constraints.maxHeight / 12 * 11) {
         return;
       }
     }
@@ -790,8 +944,10 @@ class CameraPickerState extends State<CameraPicker> with WidgetsBindingObserver 
         1 / constraints.maxHeight,
       );
       await Future.wait(<Future<void>>[
-        if (controller.value.exposurePointSupported) controller.setExposurePoint(newPoint),
-        if (controller.value.focusPointSupported) controller.setFocusPoint(newPoint),
+        if (controller.value.exposurePointSupported)
+          controller.setExposurePoint(newPoint),
+        if (controller.value.focusPointSupported)
+          controller.setFocusPoint(newPoint),
       ]);
     } catch (e, s) {
       handleErrorWithHandler(e, s, pickerConfig.onError);
@@ -902,6 +1058,7 @@ class CameraPickerState extends State<CameraPicker> with WidgetsBindingObserver 
     });
     try {
       final XFile file = await controller.takePicture();
+
       await controller.pausePreview();
       final bool? isCapturedFileHandled = pickerConfig.onXFileCaptured?.call(
         file,
@@ -971,9 +1128,17 @@ class CameraPickerState extends State<CameraPicker> with WidgetsBindingObserver 
     if (isControllerBusy) {
       return;
     }
+    final currentController = innerController;
+    if (currentController == null || !currentController.value.isInitialized) {
+      return;
+    }
     isControllerBusy = true;
     try {
-      await controller.startVideoRecording();
+      // Clear the previous countdown first to avoid the old timer stopping the
+      // next recording unexpectedly.
+      // 先清理上一轮的倒计时，避免旧定时器提前终止新一轮录制。
+      clearRecordCountdownTimer();
+      await currentController.startVideoRecording();
       if (isRecordingRestricted) {
         recordCountdownTimer = Timer(
           pickerConfig.maximumRecordingDuration!,
@@ -984,14 +1149,14 @@ class CameraPickerState extends State<CameraPicker> with WidgetsBindingObserver 
         ..reset()
         ..start();
     } catch (e, s) {
-      if (!controller.value.isRecordingVideo) {
+      if (!currentController.value.isRecordingVideo) {
         handleErrorWithHandler(e, s, pickerConfig.onError);
         return;
       }
       try {
-        await controller.stopVideoRecording();
+        await currentController.stopVideoRecording();
       } catch (e, s) {
-        recordCountdownTimer?.cancel();
+        clearRecordCountdownTimer();
         isShootingButtonAnimate = false;
         handleErrorWithHandler(e, s, pickerConfig.onError);
       } finally {
@@ -1012,8 +1177,10 @@ class CameraPickerState extends State<CameraPicker> with WidgetsBindingObserver 
     }
 
     recordStopwatch.stop();
-    if (innerController == null || !controller.value.isRecordingVideo) {
-      recordCountdownTimer?.cancel();
+    final currentController = innerController;
+    if (currentController == null ||
+        !currentController.value.isRecordingVideo) {
+      clearRecordCountdownTimer();
       safeSetState(() {
         isControllerBusy = false;
         isShootingButtonAnimate = false;
@@ -1025,12 +1192,24 @@ class CameraPickerState extends State<CameraPicker> with WidgetsBindingObserver 
       lastShootingButtonPressedPosition = null;
     });
     try {
-      final XFile file = await controller.stopVideoRecording();
+      final XFile? file = await stopRecordingForController(currentController);
+      if (file == null) {
+        return;
+      }
+      if (!canHandleStoppedRecording(currentController)) {
+        await deleteCapturedFile(file);
+        return;
+      }
       if (recordStopwatch.elapsed < minimumRecordingDuration) {
+        await deleteCapturedFile(file);
         pickerConfig.onMinimumRecordDurationNotMet?.call();
         return;
       }
-      controller.pausePreview();
+      await currentController.pausePreview();
+      if (!canHandleStoppedRecording(currentController)) {
+        await deleteCapturedFile(file);
+        return;
+      }
       final bool? isCapturedFileHandled = pickerConfig.onXFileCaptured?.call(
         file,
         CameraPickerViewType.video,
@@ -1042,19 +1221,24 @@ class CameraPickerState extends State<CameraPicker> with WidgetsBindingObserver 
         file: file,
         viewType: CameraPickerViewType.video,
       );
+      if (!canHandleStoppedRecording(currentController)) {
+        return;
+      }
       if (entity != null) {
         if (pickerConfig.onPickConfirmed case final onPickConfirmed?) {
-          await innerController?.resumePreview();
+          await currentController.resumePreview();
           onPickConfirmed(entity);
         } else {
           Navigator.of(context).pop(entity);
         }
       } else {
-        await innerController?.resumePreview();
+        await currentController.resumePreview();
       }
     } catch (e, s) {
-      recordCountdownTimer?.cancel();
-      initCameras();
+      clearRecordCountdownTimer();
+      if (mounted) {
+        initCameras();
+      }
       handleErrorWithHandler(e, s, pickerConfig.onError);
     } finally {
       safeSetState(() {
@@ -1103,7 +1287,9 @@ class CameraPickerState extends State<CameraPicker> with WidgetsBindingObserver 
   }
 
   PointerMoveEventListener? onPointerMove(BoxConstraints c) {
-    if (innerController != null && enablePullToZoomInRecord && controller.value.isRecordingVideo) {
+    if (innerController != null &&
+        enablePullToZoomInRecord &&
+        controller.value.isRecordingVideo) {
       return (PointerMoveEvent e) => onShootingButtonMove(e, c);
     }
     return null;
@@ -1205,8 +1391,11 @@ class CameraPickerState extends State<CameraPicker> with WidgetsBindingObserver 
             child: flashModeSwitch,
           );
         }
-        final isPortrait = pickerConfig.lockCaptureOrientation == DeviceOrientation.portraitUp ||
-            v.deviceOrientation.toString().contains('portrait');
+        final isPortrait = switch (lockedCaptureOrientation) {
+          DeviceOrientation.portraitUp => true,
+          DeviceOrientation.portraitDown => true,
+          _ => v.deviceOrientation.toString().contains('portrait'),
+        };
         return Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12),
           child: Flex(
@@ -1232,11 +1421,14 @@ class CameraPickerState extends State<CameraPicker> with WidgetsBindingObserver 
         ),
         onPressed: () => switchCameras(),
         icon: Icon(
-            switch (defaultTargetPlatform) {
-              TargetPlatform.iOS || TargetPlatform.macOS => Icons.flip_camera_ios_outlined,
-              _ => Icons.flip_camera_android_outlined,
-            },
-            size: 24),
+          switch (defaultTargetPlatform) {
+            TargetPlatform.iOS ||
+            TargetPlatform.macOS =>
+              Icons.flip_camera_ios_outlined,
+            _ => Icons.flip_camera_android_outlined,
+          },
+          size: 24,
+        ),
       ),
     );
   }
@@ -1302,22 +1494,29 @@ class CameraPickerState extends State<CameraPicker> with WidgetsBindingObserver 
   }) {
     const fallbackSize = 150.0;
     final previewSize = controller?.value.previewSize;
-    final orientation =
-        pickerConfig.lockCaptureOrientation ?? controller?.value.deviceOrientation ?? MediaQuery.orientationOf(context);
-    final isPortrait = pickerConfig.lockCaptureOrientation == DeviceOrientation.portraitUp ||
-        orientation.toString().contains('portrait');
+    final orientation = lockedCaptureOrientation ??
+        controller?.value.deviceOrientation ??
+        MediaQuery.orientationOf(context);
+    final isPortrait = switch (lockedCaptureOrientation) {
+      DeviceOrientation.portraitUp => true,
+      DeviceOrientation.portraitDown => true,
+      _ => orientation.toString().contains('portrait'),
+    };
     double effectiveSize;
     if (controller == null || pickerConfig.enableScaledPreview) {
       effectiveSize = lastCaptureActionsEffectiveHeight ?? fallbackSize;
     } else if (previewSize != null) {
       Size constraintSize = Size(constraints.maxWidth, constraints.maxHeight);
-      if (isPortrait && constraintSize.aspectRatio > 1 || !isPortrait && constraintSize.aspectRatio < 1) {
+      if (isPortrait && constraintSize.aspectRatio > 1 ||
+          !isPortrait && constraintSize.aspectRatio < 1) {
         constraintSize = constraintSize.flipped;
       }
       if (isPortrait) {
-        effectiveSize = constraintSize.height - constraintSize.width * previewSize.aspectRatio;
+        effectiveSize = constraintSize.height -
+            constraintSize.width * previewSize.aspectRatio;
       } else {
-        effectiveSize = constraintSize.width - constraintSize.height * previewSize.aspectRatio;
+        effectiveSize = constraintSize.width -
+            constraintSize.height * previewSize.aspectRatio;
       }
     } else if (lastCaptureActionsEffectiveHeight != null) {
       effectiveSize = lastCaptureActionsEffectiveHeight!;
@@ -1342,8 +1541,9 @@ class CameraPickerState extends State<CameraPicker> with WidgetsBindingObserver 
       padding: EdgeInsets.only(bottom: MediaQuery.paddingOf(context).bottom),
       child: Flex(
         direction: isPortrait ? Axis.horizontal : Axis.vertical,
-        verticalDirection:
-            orientation == DeviceOrientation.landscapeLeft ? VerticalDirection.up : VerticalDirection.down,
+        verticalDirection: orientation == DeviceOrientation.landscapeLeft
+            ? VerticalDirection.up
+            : VerticalDirection.down,
         children: <Widget>[
           const Spacer(),
           Expanded(
@@ -1354,7 +1554,9 @@ class CameraPickerState extends State<CameraPicker> with WidgetsBindingObserver 
               ),
             ),
           ),
-          if (controller != null && !controller.value.isRecordingVideo && cameras.length > 1)
+          if (controller != null &&
+              !controller.value.isRecordingVideo &&
+              cameras.length > 1)
             Expanded(
               child: RotatedBox(
                 quarterTurns: !enableScaledPreview ? cameraQuarterTurns : 0,
@@ -1384,15 +1586,26 @@ class CameraPickerState extends State<CameraPicker> with WidgetsBindingObserver 
     required BuildContext context,
     required BoxConstraints constraints,
   }) {
-    final showProgressIndicator = isCaptureButtonTapDown || MediaQuery.accessibleNavigationOf(context);
+    // Tap recording should keep the button visible after the gesture ends.
+    // 轻触录像开始后，即使点击手势结束，按钮也应继续可见。
+    final keepCaptureButtonVisible = enableTapRecording && isRecordingVideo;
+    final showProgressIndicator = keepCaptureButtonVisible ||
+        isCaptureButtonTapDown ||
+        MediaQuery.accessibleNavigationOf(context);
 
     if (!showProgressIndicator && isRecordingVideo) {
       return const SizedBox.shrink();
     }
+    // Reuse the same visual "pressed" state while tap-recording is active.
+    // 轻触录像进行中沿用按下态的视觉表现，避免按钮突然缩回。
+    final captureButtonActive =
+        isCaptureButtonTapDown || keepCaptureButtonVisible;
     const size = Size.square(82.0);
     return MergeSemantics(
       child: Semantics(
-        label: isRecordingVideo ? textDelegate.sActionStopRecordingHint : textShootingButtonLabel,
+        label: isRecordingVideo
+            ? textDelegate.sActionStopRecordingHint
+            : textShootingButtonLabel,
         button: true,
         onTap: onTap,
         onTapHint: onTapHint,
@@ -1411,10 +1624,14 @@ class CameraPickerState extends State<CameraPicker> with WidgetsBindingObserver 
                 isCaptureButtonTapDown = false;
               }
             }),
-            onTapCancel: () => safeSetState(() => isCaptureButtonTapDown = false),
-            onLongPressStart: (_) => safeSetState(() => isCaptureButtonTapDown = true),
-            onLongPressEnd: (_) => safeSetState(() => isCaptureButtonTapDown = false),
-            onLongPressCancel: () => safeSetState(() => isCaptureButtonTapDown = false),
+            onTapCancel: () =>
+                safeSetState(() => isCaptureButtonTapDown = false),
+            onLongPressStart: (_) =>
+                safeSetState(() => isCaptureButtonTapDown = true),
+            onLongPressEnd: (_) =>
+                safeSetState(() => isCaptureButtonTapDown = false),
+            onLongPressCancel: () =>
+                safeSetState(() => isCaptureButtonTapDown = false),
             child: SizedBox.fromSize(
               size: size,
               child: Stack(
@@ -1422,7 +1639,7 @@ class CameraPickerState extends State<CameraPicker> with WidgetsBindingObserver 
                 children: [
                   AnimatedContainer(
                     duration: const Duration(microseconds: 100),
-                    padding: EdgeInsets.all(isCaptureButtonTapDown ? 16 : 8),
+                    padding: EdgeInsets.all(captureButtonActive ? 16 : 8),
                     decoration: BoxDecoration(
                       border: Border.all(
                         color: Colors.white,
@@ -1440,9 +1657,11 @@ class CameraPickerState extends State<CameraPicker> with WidgetsBindingObserver 
                   ),
                   if (shouldCaptureButtonDisplay)
                     RotatedBox(
-                      quarterTurns: enableScaledPreview ? 0 : cameraQuarterTurns,
+                      quarterTurns:
+                          enableScaledPreview ? 0 : cameraQuarterTurns,
                       child: CameraProgressButton(
-                        isAnimating: showProgressIndicator && isShootingButtonAnimate,
+                        isAnimating:
+                            showProgressIndicator && isShootingButtonAnimate,
                         duration: pickerConfig.maximumRecordingDuration!,
                         size: size,
                         // ignore: deprecated_member_use
@@ -1481,9 +1700,10 @@ class CameraPickerState extends State<CameraPicker> with WidgetsBindingObserver 
     return ValueListenableBuilder<double>(
       valueListenable: currentExposureSliderOffset,
       builder: (_, double exposure, __) {
-        final double topByCurrentExposure = (minAvailableExposureOffset.abs() - exposure) *
-            (height - size * 3) /
-            (maxAvailableExposureOffset - minAvailableExposureOffset);
+        final double topByCurrentExposure =
+            (minAvailableExposureOffset.abs() - exposure) *
+                (height - size * 3) /
+                (maxAvailableExposureOffset - minAvailableExposureOffset);
         final double lineTop = size + topByCurrentExposure;
         final double lineBottom = height - lineTop - size;
         return Stack(
@@ -1574,12 +1794,15 @@ class CameraPickerState extends State<CameraPicker> with WidgetsBindingObserver 
 
     Widget buildFromPoint(Offset point) {
       const double controllerWidth = 20;
-      final double pointWidth = math.min(constraints.maxWidth, constraints.maxHeight) / 5;
+      final double pointWidth =
+          math.min(constraints.maxWidth, constraints.maxHeight) / 5;
       final double lineHeight = pointWidth * 2.5;
-      final double exposureControlWidth = pickerConfig.enableExposureControlOnPoint ? controllerWidth : 0;
+      final double exposureControlWidth =
+          pickerConfig.enableExposureControlOnPoint ? controllerWidth : 0;
       final double width = pointWidth + exposureControlWidth + 2;
-      final bool shouldReverseLayout =
-          cameraQuarterTurns.isEven && enableScaledPreview && point.dx > constraints.maxWidth / 4 * 3;
+      final bool shouldReverseLayout = cameraQuarterTurns.isEven &&
+          enableScaledPreview &&
+          point.dx > constraints.maxWidth / 4 * 3;
       final double effectiveLeft, effectiveTop, effectiveWidth, effectiveHeight;
       if (cameraQuarterTurns.isOdd && !enableScaledPreview) {
         effectiveLeft = math.min(
@@ -1618,10 +1841,13 @@ class CameraPickerState extends State<CameraPicker> with WidgetsBindingObserver 
                 duration: _kDuration,
                 opacity: isFadeOut ? .5 : 1,
                 child: Row(
-                  textDirection: shouldReverseLayout ? TextDirection.rtl : TextDirection.ltr,
+                  textDirection: shouldReverseLayout
+                      ? TextDirection.rtl
+                      : TextDirection.ltr,
                   children: <Widget>[
                     child!,
-                    if (pickerConfig.enableExposureControlOnPoint) const SizedBox(width: 2),
+                    if (pickerConfig.enableExposureControlOnPoint)
+                      const SizedBox(width: 2),
                     if (pickerConfig.enableExposureControlOnPoint)
                       SizedBox.fromSize(
                         size: Size(exposureControlWidth, lineHeight),
@@ -1638,7 +1864,9 @@ class CameraPickerState extends State<CameraPicker> with WidgetsBindingObserver 
             child: CameraFocusPoint(
               key: ValueKey<Offset>(point),
               size: pointWidth,
-              color: cameraValue.exposureMode == ExposureMode.locked ? _lockedColor : Theme.of(context).iconTheme.color,
+              color: cameraValue.exposureMode == ExposureMode.locked
+                  ? _lockedColor
+                  : Theme.of(context).iconTheme.color,
             ),
           ),
         ),
@@ -1708,7 +1936,7 @@ class CameraPickerState extends State<CameraPicker> with WidgetsBindingObserver 
       preview = ValueListenableBuilder<CameraValue>(
         valueListenable: controller,
         builder: (_, CameraValue value, Widget? child) {
-          if (pickerConfig.lockCaptureOrientation == DeviceOrientation.portraitUp) {
+          if (lockedCaptureOrientation == DeviceOrientation.portraitUp) {
             return RotatedBox(quarterTurns: 0, child: child);
           }
           final lockedOrientation = value.lockedCaptureOrientation;
@@ -1718,7 +1946,8 @@ class CameraPickerState extends State<CameraPicker> with WidgetsBindingObserver 
           }
           if (value.deviceOrientation == DeviceOrientation.landscapeLeft) {
             quarterTurns--;
-          } else if (value.deviceOrientation == DeviceOrientation.landscapeRight) {
+          } else if (value.deviceOrientation ==
+              DeviceOrientation.landscapeRight) {
             quarterTurns++;
           }
           return RotatedBox(quarterTurns: quarterTurns, child: child);
@@ -1731,7 +1960,8 @@ class CameraPickerState extends State<CameraPicker> with WidgetsBindingObserver 
       onPointerUp: (_) => pointers--,
       child: GestureDetector(
         onScaleStart: pickerConfig.enablePinchToZoom ? handleScaleStart : null,
-        onScaleUpdate: pickerConfig.enablePinchToZoom ? handleScaleUpdate : null,
+        onScaleUpdate:
+            pickerConfig.enablePinchToZoom ? handleScaleUpdate : null,
         // Enabled cameras switching by default if we have multiple cameras.
         onDoubleTap: cameras.length > 1 ? switchCameras : null,
         child: preview,
@@ -1739,12 +1969,14 @@ class CameraPickerState extends State<CameraPicker> with WidgetsBindingObserver 
     );
 
     // Make a transformed widget if it's defined.
-    final Widget? transformedWidget = pickerConfig.previewTransformBuilder?.call(context, controller, preview);
+    final Widget? transformedWidget = pickerConfig.previewTransformBuilder
+        ?.call(context, controller, preview);
     if (!enableScaledPreview) {
       preview = Stack(
         children: <Widget>[
           preview,
-          if (pickerConfig.enableSetExposure) buildExposureDetector(context: context, constraints: constraints),
+          if (pickerConfig.enableSetExposure)
+            buildExposureDetector(context: context, constraints: constraints),
           buildFocusingPoint(
             context: context,
             cameraValue: cameraValue,
@@ -1797,15 +2029,20 @@ class CameraPickerState extends State<CameraPicker> with WidgetsBindingObserver 
     required BoxConstraints constraints,
     DeviceOrientation? deviceOrientation,
   }) {
-    final orientation = pickerConfig.lockCaptureOrientation ?? deviceOrientation ?? MediaQuery.orientationOf(context);
+    final orientation = lockedCaptureOrientation ??
+        deviceOrientation ??
+        MediaQuery.orientationOf(context);
     final isPortrait = orientation.toString().contains('portrait');
     return SafeArea(
       bottom: false,
       child: Flex(
         direction: isPortrait ? Axis.vertical : Axis.horizontal,
-        textDirection: orientation == DeviceOrientation.landscapeRight ? TextDirection.rtl : TextDirection.ltr,
-        verticalDirection:
-            orientation == DeviceOrientation.portraitDown ? VerticalDirection.up : VerticalDirection.down,
+        textDirection: orientation == DeviceOrientation.landscapeRight
+            ? TextDirection.rtl
+            : TextDirection.ltr,
+        verticalDirection: orientation == DeviceOrientation.portraitDown
+            ? VerticalDirection.up
+            : VerticalDirection.down,
         children: <Widget>[
           Semantics(
             sortKey: const OrdinalSortKey(0),
@@ -1845,21 +2082,24 @@ class CameraPickerState extends State<CameraPicker> with WidgetsBindingObserver 
                   constraints: constraints,
                 );
               }
+              final orientation =
+                  lockedCaptureOrientation ?? v.deviceOrientation;
               return Align(
-                alignment: pickerConfig.lockCaptureOrientation == DeviceOrientation.portraitUp
-                    ? Alignment.topCenter
-                    : {
-                        DeviceOrientation.portraitUp: Alignment.topCenter,
-                        DeviceOrientation.portraitDown: Alignment.bottomCenter,
-                        DeviceOrientation.landscapeLeft: Alignment.centerLeft,
-                        DeviceOrientation.landscapeRight: Alignment.centerRight,
-                      }[v.deviceOrientation]!,
+                alignment: () {
+                  return {
+                    DeviceOrientation.portraitUp: Alignment.topCenter,
+                    DeviceOrientation.portraitDown: Alignment.bottomCenter,
+                    DeviceOrientation.landscapeLeft: Alignment.centerLeft,
+                    DeviceOrientation.landscapeRight: Alignment.centerRight,
+                  }[orientation]!;
+                }(),
                 child: AspectRatio(
-                  aspectRatio: pickerConfig.lockCaptureOrientation == DeviceOrientation.portraitUp
-                      ? 1 / v.aspectRatio
-                      : v.deviceOrientation.toString().contains('portrait')
-                          ? 1 / v.aspectRatio
-                          : v.aspectRatio,
+                  aspectRatio: switch (orientation) {
+                    DeviceOrientation.portraitUp => 1 / v.aspectRatio,
+                    DeviceOrientation.portraitDown => 1 / v.aspectRatio,
+                    DeviceOrientation.landscapeLeft => v.aspectRatio,
+                    DeviceOrientation.landscapeRight => v.aspectRatio,
+                  },
                   child: LayoutBuilder(
                     builder: (BuildContext c, BoxConstraints constraints) {
                       return buildCameraPreview(
@@ -1929,7 +2169,6 @@ class CameraPickerState extends State<CameraPicker> with WidgetsBindingObserver 
               buildForegroundBody(
                 context: context,
                 constraints: constraints,
-                deviceOrientation: null,
               )
             else
               buildInitializeWrapper(
@@ -1948,11 +2187,8 @@ class CameraPickerState extends State<CameraPicker> with WidgetsBindingObserver 
   @override
   Widget build(BuildContext context) {
     return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: const SystemUiOverlayStyle(
-        systemNavigationBarIconBrightness: Brightness.light,
-        statusBarIconBrightness: Brightness.light,
-        statusBarBrightness: Brightness.dark,
-      ),
+      value: pickerConfig.systemOverlayStyle ??
+          CameraPickerConfig.defaultSystemOverlayStyle,
       child: Theme(
         data: theme,
         child: Builder(
@@ -1964,7 +2200,9 @@ class CameraPickerState extends State<CameraPicker> with WidgetsBindingObserver 
                 quarterTurns: pickerConfig.cameraQuarterTurns,
                 child: MediaQuery(
                   data: mq.copyWith(
-                    size: pickerConfig.cameraQuarterTurns.isOdd ? mq.size.flipped : mq.size,
+                    size: pickerConfig.cameraQuarterTurns.isOdd
+                        ? mq.size.flipped
+                        : mq.size,
                   ),
                   child: body,
                 ),
@@ -2027,13 +2265,17 @@ bool _flipImageByExif(Uint8List bytes) {
       final int startOfApp1 = offset + 2;
 
       // Check for "Exif\0\0" (0x45 78 69 66 00 00)
-      if (length >= 6 && data.getUint32(startOfApp1) == 0x45786966 && data.getUint16(startOfApp1 + 4) == 0x0000) {
+      if (length >= 6 &&
+          data.getUint32(startOfApp1) == 0x45786966 &&
+          data.getUint16(startOfApp1 + 4) == 0x0000) {
         final int tiffStart = startOfApp1 + 6;
 
         // TIFF Header: Byte Order
         final int byteOrder = data.getUint16(tiffStart);
         final bool isLittle = byteOrder == 0x4949; // 'II'
-        if (!isLittle && byteOrder != 0x4D4D) return false; // Invalid or unknown endianness
+        if (!isLittle && byteOrder != 0x4D4D) {
+          return false; // Invalid or unknown endianness
+        }
 
         final Endian endian = isLittle ? Endian.little : Endian.big;
 
@@ -2106,7 +2348,9 @@ bool _flipImageByExif(Uint8List bytes) {
       return false; // Orientation tag not found in APP1
     } else {
       // Skip other markers
-      if (marker == 0xFFDA) return false; // SOS (Start of Scan) - compressed data starts, parsing ends.
+      if (marker == 0xFFDA) {
+        return false; // SOS (Start of Scan) - compressed data starts, parsing ends.
+      }
 
       // Some headers have no length (RSTn, SOI, EOI have been handled or don't appear here usually)
       // But valid JPEG markers (FF XX) except restart markers usually have length.
